@@ -2,10 +2,25 @@ package buoi6;
 
 import java.util.Scanner;
 
+import buoi6.repository.ThuVienRepository;
+import buoi6.service.ThuVienService;
+
 public class ThuvienApp {
     public static void main(String[] args) {
-        QuanLyThuVien quanLy = new QuanLyThuVien();
+        ThuVienRepository repo = new ThuVienRepository();
+        ThuVienService service = new ThuVienService(repo);
+        QuanLyThuVien quanLy = new QuanLyThuVien(service);
         Scanner scanner = quanLy.getScanner();
+
+        // tự động đọc file khi khởi động chương trình
+        try {
+            service.load();
+            System.out.println(" Đã nạp dữ liệu từ file");
+        } catch (Exception e) {
+            // TODO: handle exception
+            System.out.println("Không thể nạp dữ liệu từ file");
+        }
+
         int choice;
         
         System.out.println("\n╔═══════════════════════════════════════════════════════════════╗");

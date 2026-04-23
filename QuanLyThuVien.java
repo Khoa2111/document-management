@@ -4,18 +4,21 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Scanner;
 
-public class QuanLyThuVien {
-    private ArrayList<TaiLieu> danhSach;
+import Inheritance.t;
+import buoi6.service.ThuVienService;
+
+public class QuanLyThuVien {            // UI - Giao diện người dùng
+    private ThuVienService service;
     private Scanner scanner;
     
-    // Constructor
-    public QuanLyThuVien() {
-        danhSach = new ArrayList<>();
-        scanner = new Scanner(System.in);
+    QuanLyThuVien(ThuVienService service) {
+        this.service = service;
+        this.scanner = new Scanner(System.in);
     }
-    
+   
     // ===== CHỨC NĂNG 1: THÊM TÀI LIỆU =====
     public void themTaiLieu() {
         System.out.println("\n╔════════════════════════════════════════╗");
@@ -38,15 +41,16 @@ public class QuanLyThuVien {
         System.out.print("Số bản phát hành: ");
         int soBanPhatHanh = scanner.nextInt();
         scanner.nextLine();
+
+        TaiLieu tl = null;
         
         if (loai == 1) {  // Sách
             System.out.print("Tên tác giả: ");
             String tenTacGia = scanner.nextLine();
             System.out.print("Số trang: ");
             int soTrang = scanner.nextInt();
-            danhSach.add(new Sach(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
-                                  soBanPhatHanh, tenTacGia, soTrang));
-            System.out.println("✅ Thêm sách thành công!");
+
+            tl = new Sach(maTaiLieu, tenTaiLieu, tenNhaXuatBan, soBanPhatHanh, tenTacGia, soTrang);
             
         } else if (loai == 2) {  // Tạp chí
             System.out.print("Số phát hành: ");
@@ -58,12 +62,10 @@ public class QuanLyThuVien {
             String chuDe = scanner.nextLine();
             System.out.print("Ngôn ngữ: ");
             String ngonNgu = scanner.nextLine();
-            danhSach.add(new TapChi(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
-                                    soBanPhatHanh, soPhatHanh, thangPhatHanh,
-                                    chuDe, ngonNgu));
-            System.out.println("✅ Thêm tạp chí thành công!");
+            tl = new TapChi(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
+                                    soBanPhatHanh, soPhatHanh, thangPhatHanh, chuDe, ngonNgu);
             
-        } else if (loai == 3) {  // Báo
+        } else if (loai == 3) { // Báo
             scanner.nextLine();
             System.out.print("Ngày phát hành (YYYY-MM-DD): ");
             String ngayPhatHanh = scanner.nextLine();
@@ -71,11 +73,16 @@ public class QuanLyThuVien {
             String loaiBao = scanner.nextLine();
             System.out.print("Có trang màu? (true/false): ");
             boolean coTrangMau = scanner.nextBoolean();
-            danhSach.add(new Bao(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
-                                 soBanPhatHanh, ngayPhatHanh, loaiBao, coTrangMau));
-            System.out.println("✅ Thêm báo thành công!");
-        } else {
-            System.out.println("❌ Lựa chọn không hợp lệ!");
+            tl = new Bao(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
+                    soBanPhatHanh, ngayPhatHanh, loaiBao, coTrangMau);
+        }
+        if (tl != null) {
+            boolean ok = service.addTaiLieu(tl);
+            if (ok) {
+                System.out.println("✅ Thêm tài liệu thành công!");
+            } else {
+                System.out.println("❌ mã tài liệu đã tồn tại!");
+            }
         }
     }
     
@@ -83,14 +90,16 @@ public class QuanLyThuVien {
     public void hienThiDanhSach() {
         System.out.println("\n╔════════════════════════════════════════════════════════════════════════════════════════╗");
         System.out.println("║                           DANH SÁCH TẤT CẢ TÀI LIỆU                                    ║");
-        System.out.println("╚════════════════════════════════════════════════════════════════════════════════════════╝");
+        System.out
+                .println("╚════════════════════════════════════════════════════════════════════════════════════════╝");
         
-        if (danhSach.isEmpty()) {
+        List<TaiLieu> list = service.getAll();
+        if (list.isEmpty()) {
             System.out.println("⚠️  Danh sách trống!");
         } else {
-            for (int i = 0; i < danhSach.size(); i++) {
+            for (int i = 0; i < list.size(); i++) {
                 System.out.print((i + 1) + ". ");
-                danhSach.get(i).hienThiThongTin();
+                list.get(i).hienThiThongTin();
             }
         }
     }
@@ -101,7 +110,7 @@ public class QuanLyThuVien {
         System.out.println("║         XÓA TÀI LIỆU                   ║");
         System.out.println("╚════════════════════════════════════════╝");
         
-        if (danhSach.isEmpty()) {
+        if (service.getAll().isEmpty()) {
             System.out.println("⚠️  Danh sách trống!");
             return;
         }
@@ -109,19 +118,9 @@ public class QuanLyThuVien {
         System.out.print("Nhập mã tài liệu cần xóa: ");
         String maCanXoa = scanner.nextLine();
         
-        boolean timThay = false;
-        for (int i = 0; i < danhSach.size(); i++) {
-            if (danhSach.get(i).getMaTaiLieu().equals(maCanXoa)) {
-                TaiLieu xoa = danhSach.remove(i);
-                System.out.println("✅ Đã xóa tài liệu: " + xoa.getTenTaiLieu());
-                timThay = true;
-                break;
-            }
-        }
+        boolean ok = service.deleteById(maCanXoa);
+        System.out.println(ok ? "✅ Xóa tài liệu thanh cong!" : "❌ Xóa tài liệu khong thanh cong!");
         
-        if (!timThay) {
-            System.out.println("❌ Không tìm thấy tài liệu có mã: " + maCanXoa);
-        }
     }
     
     // ===== CHỨC NĂNG 4: TÌM KIẾM THEO LOẠI =====
@@ -138,23 +137,19 @@ public class QuanLyThuVien {
         scanner.nextLine();
         
         System.out.println("\n===== KẾT QUẢ TÌM KIẾM =====");
-        boolean timThay = false;
-        int stt = 1;
         
-        for (TaiLieu tl : danhSach) {
-            if ((loai == 1 && tl instanceof Sach) ||
-                (loai == 2 && tl instanceof TapChi) ||
-                (loai == 3 && tl instanceof Bao)) {
-                System.out.print(stt + ". ");
-                tl.hienThiThongTin();
-                stt++;
-                timThay = true;
-            }
+        Class<?> type = switch(loai) {
+            case 1 -> Sach.class;
+            case 2 -> TapChi.class;
+            case 3 -> Bao.class;
+            default -> null;
+        };
+        if (type == null) {
+            System.out.println("❌ Lựa chọn không hợp lệ!");
+            return;
         }
-        
-        if (!timThay) {
-            System.out.println("⚠️  Không tìm thấy tài liệu loại này!");
-        }
+
+        service.filterByType(type).forEach(TaiLieu::hienThiThongTin);
     }
     
     // ===== CHỨC NĂNG 5: SẮP XẾP =====
@@ -163,19 +158,12 @@ public class QuanLyThuVien {
         System.out.println("║  SẮP XẾP THEO SỐ BẢN PHÁT HÀNH (GIẢM DẦN)              ║");
         System.out.println("╚════════════════════════════════════════════════════════╝");
         
-        if (danhSach.isEmpty()) {
+        if (service.getAll().isEmpty()) {
             System.out.println("⚠️  Danh sách trống!");
             return;
         }
         
-        Collections.sort(danhSach, new Comparator<TaiLieu>() {
-            @Override
-            public int compare(TaiLieu o1, TaiLieu o2) {
-                // Giảm dần: o2 - o1
-                return o2.getSoBanPhatHanh() - o1.getSoBanPhatHanh();
-            }
-        });
-        
+        service.sortByBanPhatHanhDesc();
         System.out.println("✅ Đã sắp xếp danh sách (giảm dần)!\n");
         hienThiDanhSach();
     }
@@ -186,23 +174,15 @@ public class QuanLyThuVien {
         System.out.println("║         GHI DỮ LIỆU VÀO FILE          ║");
         System.out.println("╚════════════════════════════════════════╝");
         
-        if (danhSach.isEmpty()) {
+        if (service.getAll().isEmpty()) {
             System.out.println("⚠️  Danh sách trống! Không có gì để ghi.");
             return;
         }
         
         try {
-            FileOutputStream fos = new FileOutputStream("thuvien.dat");
-            ObjectOutputStream oos = new ObjectOutputStream(fos);
-            
-            oos.writeObject(danhSach);
-            
-            oos.close();
-            fos.close();
-            
+            service.save();
             System.out.println("✅ Đã lưu dữ liệu thành công!");
             System.out.println("   📁 File: thuvien.dat");
-            System.out.println("   📊 Số tài liệu: " + danhSach.size());
             
         } catch (IOException e) {
             System.out.println("❌ Lỗi khi ghi file: " + e.getMessage());
@@ -216,20 +196,11 @@ public class QuanLyThuVien {
         System.out.println("╚════════════════════════════════════════╝");
         
         try {
-            FileInputStream fis = new FileInputStream("thuvien.dat");
-            ObjectInputStream ois = new ObjectInputStream(fis);
-            
-            @SuppressWarnings("unchecked")
-            ArrayList<TaiLieu> danhSachDoc = (ArrayList<TaiLieu>) ois.readObject();
-            
-            ois.close();
-            fis.close();
-            
-            danhSach = danhSachDoc;
-            
-            System.out.println("✅ Đã nạp " + danhSach.size() + " tài liệu từ file!");
-            System.out.println("   📁 File: thuvien.dat\n");
+            service.load();
+            System.out.println("✅ Đã nạp dữ liệu từ file thành công!");
+            System.out.println("   📁 File: thuvien.dat");
             hienThiDanhSach();
+               
             
         } catch (FileNotFoundException e) {
             System.out.println("❌ File chưa tồn tại!");
