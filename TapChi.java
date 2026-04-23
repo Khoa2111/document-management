@@ -2,60 +2,45 @@ package buoi6;
 
 public class TapChi extends TaiLieu {
     private static final long serialVersionUID = 1L;
-    
+
     private int soPhatHanh;
     private int thangPhatHanh;
     private String chuDe;
     private String ngonNgu;
-    
-    // Constructor
+
     public TapChi(String maTaiLieu, String tenTaiLieu, String tenNhaXuatBan,
                   int soBanPhatHanh, int soPhatHanh, int thangPhatHanh,
                   String chuDe, String ngonNgu) {
         super(maTaiLieu, tenTaiLieu, tenNhaXuatBan, soBanPhatHanh);
-        this.soPhatHanh = soPhatHanh;
-        this.thangPhatHanh = thangPhatHanh;
-        this.chuDe = chuDe;
-        this.ngonNgu = ngonNgu;
+        this.soPhatHanh = validSoDuong(soPhatHanh, "Số phát hành");
+        setThangPhatHanh(thangPhatHanh);
+        this.chuDe   = validChuoi(chuDe, "Chủ đề");
+        this.ngonNgu = validChuoi(ngonNgu, "Ngôn ngữ");
     }
-    
-    // Getter & Setter
-    public int getSoPhatHanh() {
-        return soPhatHanh;
-    }
-    
-    public void setSoPhatHanh(int soPhatHanh) {
-        this.soPhatHanh = soPhatHanh;
-    }
-    
-    public int getThangPhatHanh() {
-        return thangPhatHanh;
-    }
-    
+
+    // ===== Getters =====
+    public int    getSoPhatHanh()    { return soPhatHanh; }
+    public int    getThangPhatHanh() { return thangPhatHanh; }
+    public String getChuDe()         { return chuDe; }
+    public String getNgonNgu()       { return ngonNgu; }
+
+    // ===== Setters (có validation) =====
+    public void setSoPhatHanh(int soPhatHanh) { this.soPhatHanh = validSoDuong(soPhatHanh, "Số phát hành"); }
+    public void setChuDe(String chuDe)        { this.chuDe      = validChuoi(chuDe, "Chủ đề"); }
+    public void setNgonNgu(String ngonNgu)    { this.ngonNgu    = validChuoi(ngonNgu, "Ngôn ngữ"); }
+
     public void setThangPhatHanh(int thangPhatHanh) {
+        if (thangPhatHanh < 1 || thangPhatHanh > 12) {
+            throw new IllegalArgumentException("Tháng phát hành phải từ 1 đến 12!");
+        }
         this.thangPhatHanh = thangPhatHanh;
     }
-    
-    public String getChuDe() {
-        return chuDe;
-    }
-    
-    public void setChuDe(String chuDe) {
-        this.chuDe = chuDe;
-    }
-    
-    public String getNgonNgu() {
-        return ngonNgu;
-    }
-    
-    public void setNgonNgu(String ngonNgu) {
-        this.ngonNgu = ngonNgu;
-    }
-    
+
     @Override
-    public void hienThiThongTin() {
-        System.out.printf("[TẠP CHÍ] Mã: %s | Tên tạp chí: %s | NXB: %s | Bản in: %d | Số PH: %d | Tháng: %d | Chủ đề: %s | Ngôn ngữ: %s%n",
-                getMaTaiLieu(), getTenTaiLieu(), getTenNhaXuatBan(),
-                getSoBanPhatHanh(), soPhatHanh, thangPhatHanh, chuDe, ngonNgu);
+    public String toThongTin() {
+        return String.format(
+            "[TẠP CHÍ] Mã: %-8s | Tên: %-25s | NXB: %-15s | Bản in: %4d | Số PH: %3d | Tháng: %2d | Chủ đề: %-12s | Ngôn ngữ: %s",
+            getMaTaiLieu(), getTenTaiLieu(), getTenNhaXuatBan(),
+            getSoBanPhatHanh(), soPhatHanh, thangPhatHanh, chuDe, ngonNgu);
     }
 }
