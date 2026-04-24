@@ -1,26 +1,23 @@
 package buoi6;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.io.IOException;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
-import java.util.stream.*;
+import java.util.stream.IntStream;
 
+/**
+ * UI layer: menu, nhập liệu và hiển thị kết quả trên console.
+ * Mọi nghiệp vụ đều delegate xuống {@link ThuVienService}.
+ */
 public class QuanLyThuVien {
 
-    private static final String FILE_DAT = "thuvien.dat";
-    private static final String FILE_TXT = "thuvien.txt";
-
-    private List<TaiLieu> danhSach;
+    private final ThuVienService service;
     private final Scanner scanner;
-    private boolean dirty = false;
 
-    public QuanLyThuVien() {
-        danhSach = new ArrayList<>();
-        scanner  = new Scanner(System.in);
+    public QuanLyThuVien(ThuVienService service) {
+        this.service = service;
+        this.scanner = new Scanner(System.in);
     }
 
     // =====================================================================
@@ -31,7 +28,7 @@ public class QuanLyThuVien {
         System.out.println("║       🎉 CHÀO MỪNG ĐẾN PHẦN MỀM QUẢN LÝ THƯ VIỆN 🎉         ║");
         System.out.println("╚═══════════════════════════════════════════════════════════════╝");
 
-        autoLoadFile();
+        System.out.println(service.autoLoad());
 
         int luaChon;
         do {
@@ -62,7 +59,7 @@ public class QuanLyThuVien {
         System.out.println("\n╔══════════════════════════════════════════════════════════════╗");
         System.out.println("║                    📚 MENU CHÍNH 📚                          ║");
         System.out.println("╠══════════════════════════════════════════════════════════════╣");
-        if (dirty) {
+        if (service.isDirty()) {
             System.out.println("║  ⚠️  [CHƯA LƯU] Có thay đổi chưa được lưu vào file!        ║");
             System.out.println("╠══════════════════════════════════════════════════════════════╣");
         }
@@ -94,45 +91,39 @@ public class QuanLyThuVien {
         System.out.println("╚════════════════════════════════════════╝");
         int loai = nhapSoNguyen("Chọn loại (1-3): ", 1, 3);
 
-        String maTaiLieu = nhapChuoi("Mã tài liệu   : ");
-        try {
-            kiemTraMaTrung(maTaiLieu);
-        } catch (MaTaiLieuTrungException e) {
-            System.out.println("❌ " + e.getMessage());
-            return;
-        }
-
+        String maTaiLieu     = nhapChuoi("Mã tài liệu   : ");
         String tenTaiLieu    = nhapChuoi("Tên tài liệu  : ");
         String tenNhaXuatBan = nhapChuoi("Nhà xuất bản  : ");
         int soBanPhatHanh    = nhapSoNguyen("Số bản phát hành (> 0): ", 1, Integer.MAX_VALUE);
 
         try {
-            switch (loai) {
+            TaiLieu taiLieu = switch (loai) {
                 case 1 -> {
                     String tenTacGia = nhapChuoi("Tên tác giả: ");
                     int soTrang      = nhapSoNguyen("Số trang (> 0): ", 1, Integer.MAX_VALUE);
-                    danhSach.add(new Sach(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
-                                         soBanPhatHanh, tenTacGia, soTrang));
+                    yield new Sach(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
+                                   soBanPhatHanh, tenTacGia, soTrang);
                 }
                 case 2 -> {
                     int soPhatHanh    = nhapSoNguyen("Số phát hành (> 0): ", 1, Integer.MAX_VALUE);
                     int thangPhatHanh = nhapSoNguyen("Tháng phát hành (1-12): ", 1, 12);
                     String chuDe      = nhapChuoi("Chủ đề   : ");
                     String ngonNgu    = nhapChuoi("Ngôn ngữ : ");
-                    danhSach.add(new TapChi(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
-                                           soBanPhatHanh, soPhatHanh, thangPhatHanh,
-                                           chuDe, ngonNgu));
+                    yield new TapChi(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
+                                     soBanPhatHanh, soPhatHanh, thangPhatHanh, chuDe, ngonNgu);
                 }
-                case 3 -> {
+                default -> {
                     LocalDate ngayPhatHanh = nhapNgay("Ngày phát hành (YYYY-MM-DD): ");
                     String loaiBao         = nhapChuoi("Loại báo (Nhật báo/Tuần báo/...): ");
                     boolean coTrangMau     = nhapBoolean("Có trang màu?");
-                    danhSach.add(new Bao(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
-                                        soBanPhatHanh, ngayPhatHanh, loaiBao, coTrangMau));
+                    yield new Bao(maTaiLieu, tenTaiLieu, tenNhaXuatBan,
+                                  soBanPhatHanh, ngayPhatHanh, loaiBao, coTrangMau);
                 }
-            }
+            };
+            service.them(taiLieu);
             System.out.println("✅ Thêm tài liệu thành công!");
-            dirty = true;
+        } catch (MaTaiLieuTrungException e) {
+            System.out.println("❌ " + e.getMessage());
         } catch (IllegalArgumentException e) {
             System.out.println("❌ Dữ liệu không hợp lệ: " + e.getMessage());
         }
@@ -146,51 +137,46 @@ public class QuanLyThuVien {
         System.out.println("║                 DANH SÁCH TẤT CẢ TÀI LIỆU                       ║");
         System.out.println("╚══════════════════════════════════════════════════════════════════╝");
 
-        if (danhSach.isEmpty()) {
+        List<TaiLieu> ds = service.getDanhSach();
+        if (ds.isEmpty()) {
             System.out.println("⚠️  Danh sách trống!");
             return;
         }
-
-        // Dùng IntStream để có số thứ tự
-        IntStream.range(0, danhSach.size())
-                 .forEach(i -> System.out.println((i + 1) + ". " + danhSach.get(i).toThongTin()));
+        IntStream.range(0, ds.size())
+                 .forEach(i -> System.out.println((i + 1) + ". " + ds.get(i).toThongTin()));
     }
 
     // =====================================================================
-    // CHỨC NĂNG 3 – XÓA TÀI LIỆU  (Optional)
+    // CHỨC NĂNG 3 – XÓA TÀI LIỆU
     // =====================================================================
     public void xoaTaiLieu() {
         System.out.println("\n╔════════════════════════════════════════╗");
         System.out.println("║            XÓA TÀI LIỆU               ║");
         System.out.println("╚════════════════════════════════════════╝");
 
-        if (danhSach.isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
+        if (service.getDanhSach().isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
 
         String ma = nhapChuoi("Mã tài liệu cần xóa: ");
-
-        // timTheoMa trả về Optional – nếu có thì xóa, không thì báo lỗi
-        timTheoMa(ma).ifPresentOrElse(
-            tl -> {
-                danhSach.remove(tl);
-                System.out.println("✅ Đã xóa: " + tl.getTenTaiLieu());
-                dirty = true;
-            },
-            () -> System.out.println("❌ Không tìm thấy tài liệu có mã: " + ma)
-        );
+        try {
+            service.xoa(ma);
+            System.out.println("✅ Đã xóa tài liệu có mã: " + ma);
+        } catch (TaiLieuNotFoundException e) {
+            System.out.println("❌ " + e.getMessage());
+        }
     }
 
     // =====================================================================
-    // CHỨC NĂNG 4 – SỬA TÀI LIỆU  (Optional)
+    // CHỨC NĂNG 4 – SỬA TÀI LIỆU  (Optional + Consumer Functional Interface)
     // =====================================================================
     public void suaTaiLieu() {
         System.out.println("\n╔════════════════════════════════════════╗");
         System.out.println("║           SỬA TÀI LIỆU                ║");
         System.out.println("╚════════════════════════════════════════╝");
 
-        if (danhSach.isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
+        if (service.getDanhSach().isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
 
-        String ma  = nhapChuoi("Mã tài liệu cần sửa: ");
-        Optional<TaiLieu> opt = timTheoMa(ma);
+        String ma = nhapChuoi("Mã tài liệu cần sửa: ");
+        Optional<TaiLieu> opt = service.findByMa(ma);
 
         if (opt.isEmpty()) {
             System.out.println("❌ Không tìm thấy tài liệu có mã: " + ma);
@@ -202,55 +188,66 @@ public class QuanLyThuVien {
         tl.hienThiThongTin();
         System.out.println("\n(Nhấn Enter để giữ nguyên giá trị cũ)");
 
-        // --- Cập nhật các trường chung ---
-        String tenMoi = nhapTuyChon("Tên tài liệu mới [" + tl.getTenTaiLieu() + "]: ");
-        if (!tenMoi.isEmpty()) tl.setTenTaiLieu(tenMoi);
-
-        String nxbMoi = nhapTuyChon("Nhà xuất bản mới [" + tl.getTenNhaXuatBan() + "]: ");
-        if (!nxbMoi.isEmpty()) tl.setTenNhaXuatBan(nxbMoi);
-
-        String soBanStr = nhapTuyChon("Số bản phát hành mới [" + tl.getSoBanPhatHanh() + "]: ");
-        if (!soBanStr.isEmpty()) {
-            try {
-                tl.setSoBanPhatHanh(Integer.parseInt(soBanStr));
-            } catch (IllegalArgumentException e) {
-                System.out.println("  ⚠️  Giá trị không hợp lệ, giữ nguyên.");
-            }
+        // --- Nhập các trường chung ---
+        final String fTen   = nhapTuyChon("Tên tài liệu mới [" + tl.getTenTaiLieu() + "]: ");
+        final String fNxb   = nhapTuyChon("Nhà xuất bản mới [" + tl.getTenNhaXuatBan() + "]: ");
+        final String sBan   = nhapTuyChon("Số bản phát hành mới [" + tl.getSoBanPhatHanh() + "]: ");
+        final Integer fBan  = parseIntOrNull(sBan);
+        if (!sBan.isEmpty() && fBan == null) {
+            System.out.println("  ⚠️  Giá trị không hợp lệ, giữ nguyên.");
         }
 
-        // --- Cập nhật trường riêng theo loại (pattern matching – Java 17) ---
+        // --- Nhập trường riêng theo loại (Java 21 pattern matching) ---
+        final String  fTacGia;
+        final Integer fSoTrang;
+        final String  fChuDe;
+        final String  fNgonNgu;
+        final LocalDate fNgay;
+
         if (tl instanceof Sach sach) {
-            String tacGiaMoi = nhapTuyChon("Tên tác giả mới [" + sach.getTenTacGia() + "]: ");
-            if (!tacGiaMoi.isEmpty()) sach.setTenTacGia(tacGiaMoi);
-
-            String soTrangStr = nhapTuyChon("Số trang mới [" + sach.getSoTrang() + "]: ");
-            if (!soTrangStr.isEmpty()) {
-                try { sach.setSoTrang(Integer.parseInt(soTrangStr)); }
-                catch (IllegalArgumentException e) {
-                    System.out.println("  ⚠️  Giá trị không hợp lệ, giữ nguyên.");
-                }
-            }
+            fTacGia  = nhapTuyChon("Tên tác giả mới [" + sach.getTenTacGia() + "]: ");
+            String s = nhapTuyChon("Số trang mới [" + sach.getSoTrang() + "]: ");
+            fSoTrang = parseIntOrNull(s);
+            if (!s.isEmpty() && fSoTrang == null) System.out.println("  ⚠️  Giá trị không hợp lệ, giữ nguyên.");
+            fChuDe = ""; fNgonNgu = ""; fNgay = null;
         } else if (tl instanceof TapChi tapChi) {
-            String chuDeMoi  = nhapTuyChon("Chủ đề mới [" + tapChi.getChuDe() + "]: ");
-            if (!chuDeMoi.isEmpty()) tapChi.setChuDe(chuDeMoi);
-
-            String ngonNguMoi = nhapTuyChon("Ngôn ngữ mới [" + tapChi.getNgonNgu() + "]: ");
-            if (!ngonNguMoi.isEmpty()) tapChi.setNgonNgu(ngonNguMoi);
+            fChuDe   = nhapTuyChon("Chủ đề mới [" + tapChi.getChuDe() + "]: ");
+            fNgonNgu = nhapTuyChon("Ngôn ngữ mới [" + tapChi.getNgonNgu() + "]: ");
+            fTacGia = ""; fSoTrang = null; fNgay = null;
         } else if (tl instanceof Bao bao) {
-            String ngayStr = nhapTuyChon("Ngày phát hành mới [" + bao.getNgayPhatHanh() + "] (YYYY-MM-DD): ");
-            if (!ngayStr.isEmpty()) {
-                try { bao.setNgayPhatHanh(LocalDate.parse(ngayStr)); }
-                catch (DateTimeParseException e) { System.out.println("  ⚠️  Ngày không hợp lệ, giữ nguyên."); }
-            }
+            String s = nhapTuyChon("Ngày phát hành mới [" + bao.getNgayPhatHanh() + "] (YYYY-MM-DD): ");
+            fNgay = parseDateOrNull(s);
+            if (!s.isEmpty() && fNgay == null) System.out.println("  ⚠️  Ngày không hợp lệ, giữ nguyên.");
+            fTacGia = ""; fSoTrang = null; fChuDe = ""; fNgonNgu = "";
+        } else {
+            fTacGia = ""; fSoTrang = null; fChuDe = ""; fNgonNgu = ""; fNgay = null;
         }
 
-        System.out.println("✅ Đã cập nhật tài liệu thành công!");
-        dirty = true;
-        tl.hienThiThongTin();
+        // --- Áp dụng tất cả thay đổi qua Consumer<TaiLieu> ---
+        try {
+            service.sua(ma, t -> {
+                if (!fTen.isEmpty())  t.setTenTaiLieu(fTen);
+                if (!fNxb.isEmpty())  t.setTenNhaXuatBan(fNxb);
+                if (fBan != null)     t.setSoBanPhatHanh(fBan);
+                if (t instanceof Sach sach) {
+                    if (!fTacGia.isEmpty()) sach.setTenTacGia(fTacGia);
+                    if (fSoTrang != null)   sach.setSoTrang(fSoTrang);
+                } else if (t instanceof TapChi tapChi) {
+                    if (!fChuDe.isEmpty())   tapChi.setChuDe(fChuDe);
+                    if (!fNgonNgu.isEmpty()) tapChi.setNgonNgu(fNgonNgu);
+                } else if (t instanceof Bao bao) {
+                    if (fNgay != null) bao.setNgayPhatHanh(fNgay);
+                }
+            });
+            System.out.println("✅ Đã cập nhật tài liệu thành công!");
+            service.findByMa(ma).ifPresent(TaiLieu::hienThiThongTin);
+        } catch (TaiLieuNotFoundException e) {
+            System.out.println("❌ " + e.getMessage());
+        }
     }
 
     // =====================================================================
-    // CHỨC NĂNG 5 – TÌM KIẾM THEO LOẠI  (Stream + filter + instanceof)
+    // CHỨC NĂNG 5 – TÌM KIẾM THEO LOẠI  (Stream + filter + method reference)
     // =====================================================================
     public void timKiemTheoLoai() {
         System.out.println("\n╔════════════════════════════════════════╗");
@@ -258,19 +255,14 @@ public class QuanLyThuVien {
         System.out.println("╠════════════════════════════════════════╣");
         System.out.println("║ 1. Sách    2. Tạp chí    3. Báo        ║");
         System.out.println("╚════════════════════════════════════════╝");
-        int loai = nhapSoNguyen("Chọn loại (1-3): ", 1, 3);
+        int chon = nhapSoNguyen("Chọn loại (1-3): ", 1, 3);
 
-        // Xây dựng Predicate dựa trên lựa chọn
-        List<TaiLieu> ketQua = danhSach.stream()
-                .filter(tl -> switch (loai) {
-                    case 1 -> tl instanceof Sach;
-                    case 2 -> tl instanceof TapChi;
-                    case 3 -> tl instanceof Bao;
-                    default -> false;
-                })
-                .collect(Collectors.toList());
-
-        inKetQua(ketQua);
+        Class<? extends TaiLieu> loaiClass = switch (chon) {
+            case 1 -> Sach.class;
+            case 2 -> TapChi.class;
+            default -> Bao.class;
+        };
+        inKetQua(service.findByLoai(loaiClass));
     }
 
     // =====================================================================
@@ -281,13 +273,8 @@ public class QuanLyThuVien {
         System.out.println("║       TÌM KIẾM THEO TÊN TÀI LIỆU      ║");
         System.out.println("╚════════════════════════════════════════╝");
 
-        String tuKhoa = nhapChuoi("Nhập từ khóa: ").toLowerCase();
-
-        List<TaiLieu> ketQua = danhSach.stream()
-                .filter(tl -> tl.getTenTaiLieu().toLowerCase().contains(tuKhoa)
-                           || tl.getTenNhaXuatBan().toLowerCase().contains(tuKhoa))
-                .collect(Collectors.toList());
-
+        String tuKhoa = nhapChuoi("Nhập từ khóa: ");
+        List<TaiLieu> ketQua = service.findByTen(tuKhoa);
         System.out.println("🔎 Từ khóa: \"" + tuKhoa + "\"");
         inKetQua(ketQua);
     }
@@ -300,13 +287,11 @@ public class QuanLyThuVien {
         System.out.println("║    SẮP XẾP THEO SỐ BẢN PHÁT HÀNH (GIẢM DẦN)               ║");
         System.out.println("╚════════════════════════════════════════════════════════════╝");
 
-        if (danhSach.isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
+        if (service.getDanhSach().isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
 
-        // Comparator viết bằng lambda (method reference + reversed)
-        danhSach.sort(Comparator.comparingInt(TaiLieu::getSoBanPhatHanh).reversed());
-
+        List<TaiLieu> sorted = service.sapXepTheoBanPhatHanh();
         System.out.println("✅ Đã sắp xếp (giảm dần)!\n");
-        hienThiDanhSach();
+        inKetQua(sorted);
     }
 
     // =====================================================================
@@ -317,27 +302,12 @@ public class QuanLyThuVien {
         System.out.println("║         THỐNG KÊ TỔNG HỢP              ║");
         System.out.println("╚════════════════════════════════════════╝");
 
-        if (danhSach.isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
+        if (service.getDanhSach().isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
 
-        // Gom nhóm theo tên lớp → đếm số lượng
-        Map<String, Long> theoLoai = danhSach.stream()
-                .collect(Collectors.groupingBy(
-                    tl -> tenLoai(tl),
-                    Collectors.counting()
-                ));
+        Map<String, Long> theoLoai = service.thongKeTheoLoai();
+        IntSummaryStatistics stats = service.thongKeBanPhatHanh();
 
-        // Thống kê số bản phát hành
-        IntSummaryStatistics stats = danhSach.stream()
-                .mapToInt(TaiLieu::getSoBanPhatHanh)
-                .summaryStatistics();
-
-        // NXB có nhiều tài liệu nhất
-        Optional<Map.Entry<String, Long>> nxbNhieu = danhSach.stream()
-                .collect(Collectors.groupingBy(TaiLieu::getTenNhaXuatBan, Collectors.counting()))
-                .entrySet().stream()
-                .max(Map.Entry.comparingByValue());
-
-        System.out.println("📊 Tổng số tài liệu : " + danhSach.size());
+        System.out.println("📊 Tổng số tài liệu : " + service.tongSo());
         System.out.println("   Phân loại:");
         theoLoai.forEach((loai, so) ->
             System.out.printf("   %-10s: %d tài liệu%n", loai, so));
@@ -347,7 +317,7 @@ public class QuanLyThuVien {
         System.out.printf("   Thấp nhất  : %d%n", stats.getMin());
         System.out.printf("   Trung bình : %.1f%n", stats.getAverage());
 
-        nxbNhieu.ifPresent(e ->
+        service.nxbNhieuNhat().ifPresent(e ->
             System.out.printf("🏆 NXB nhiều tài liệu nhất: %s (%d)%n", e.getKey(), e.getValue()));
     }
 
@@ -359,23 +329,22 @@ public class QuanLyThuVien {
         System.out.println("║       GHI DỮ LIỆU VÀO FILE (.dat)     ║");
         System.out.println("╚════════════════════════════════════════╝");
 
-        if (danhSach.isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
+        if (service.getDanhSach().isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
 
-        try (ObjectOutputStream oos =
-                new ObjectOutputStream(new FileOutputStream(FILE_DAT))) {
-            oos.writeObject(danhSach);
-            dirty = false;
-            System.out.println("✅ Đã lưu " + danhSach.size() + " tài liệu vào: " + FILE_DAT);
+        try {
+            service.luuFile();
+            System.out.println("✅ Đã lưu " + service.tongSo() + " tài liệu vào: "
+                               + service.getDatFilePath());
         } catch (IOException e) {
             System.out.println("❌ Lỗi khi ghi file: " + e.getMessage());
         }
     }
 
     // =====================================================================
-    // CHỨC NĂNG 10 – ĐỌC FILE NHỊ PHÂN  (Serialization + try-with-resources)
+    // CHỨC NĂNG 10 – ĐỌC FILE NHỊ PHÂN  (safe load với dirty check)
     // =====================================================================
     public void docFile() {
-        if (!dirty) {
+        if (!service.isDirty()) {
             thucHienDocFile();
             return;
         }
@@ -392,7 +361,7 @@ public class QuanLyThuVien {
         switch (chon) {
             case 1 -> {
                 ghiFile();
-                if (!dirty) {   // chỉ tải lại nếu ghi thành công
+                if (!service.isDirty()) {   // chỉ tải lại nếu ghi thành công
                     thucHienDocFile();
                 } else {
                     System.out.println("⚠️  Lưu thất bại, không tải lại file.");
@@ -403,21 +372,16 @@ public class QuanLyThuVien {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void thucHienDocFile() {
         System.out.println("\n╔════════════════════════════════════════╗");
         System.out.println("║       ĐỌC DỮ LIỆU TỪ FILE (.dat)      ║");
         System.out.println("╚════════════════════════════════════════╝");
 
-        try (ObjectInputStream ois =
-                new ObjectInputStream(new FileInputStream(FILE_DAT))) {
-            List<TaiLieu> temp = (List<TaiLieu>) ois.readObject();
-            danhSach = temp;
-            dirty = false;
-            System.out.println("✅ Đã nạp " + danhSach.size() + " tài liệu từ: " + FILE_DAT);
+        try {
+            service.napLaiFile();
+            System.out.println("✅ Đã nạp " + service.tongSo() + " tài liệu từ: "
+                               + service.getDatFilePath());
             hienThiDanhSach();
-        } catch (FileNotFoundException e) {
-            System.out.println("❌ File chưa tồn tại! Hãy ghi file trước (chức năng 9).");
         } catch (IOException e) {
             System.out.println("❌ Lỗi khi đọc file: " + e.getMessage());
         } catch (ClassNotFoundException e) {
@@ -433,29 +397,12 @@ public class QuanLyThuVien {
         System.out.println("║    XUẤT DANH SÁCH RA FILE VĂN BẢN     ║");
         System.out.println("╚════════════════════════════════════════╝");
 
-        if (danhSach.isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
+        if (service.getDanhSach().isEmpty()) { System.out.println("⚠️  Danh sách trống!"); return; }
 
-        // Tạo nội dung bằng Stream
-        List<String> lines = new ArrayList<>();
-        String header = "===== THƯ VIỆN – DANH SÁCH TÀI LIỆU =====";
-        lines.add(header);
-        lines.add("Ngày xuất : " + LocalDate.now()
-                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-        lines.add("Tổng số   : " + danhSach.size() + " tài liệu");
-        lines.add("=".repeat(header.length()));
-
-        List<String> docLines = IntStream.range(0, danhSach.size())
-                .mapToObj(i -> (i + 1) + ". " + danhSach.get(i).toThongTin())
-                .collect(Collectors.toList());
-        lines.addAll(docLines);
-
-        Path path = Path.of(FILE_TXT);
         try {
-            Files.write(path, lines, StandardCharsets.UTF_8,
-                        StandardOpenOption.CREATE,
-                        StandardOpenOption.TRUNCATE_EXISTING);
-            System.out.println("✅ Đã xuất " + danhSach.size() + " tài liệu ra: "
-                               + path.toAbsolutePath());
+            service.xuatTxt();
+            System.out.println("✅ Đã xuất " + service.tongSo() + " tài liệu ra: "
+                               + service.getTxtFilePath());
         } catch (IOException e) {
             System.out.println("❌ Lỗi khi xuất file: " + e.getMessage());
         }
@@ -464,39 +411,6 @@ public class QuanLyThuVien {
     // =====================================================================
     // PRIVATE HELPERS
     // =====================================================================
-
-    /** Tự động nạp dữ liệu từ file khi khởi động (nếu file tồn tại). */
-    @SuppressWarnings("unchecked")
-    private void autoLoadFile() {
-        File file = new File(FILE_DAT);
-        if (!file.exists()) {
-            System.out.println("ℹ️  Chưa có file dữ liệu. Bắt đầu với danh sách trống.");
-            return;
-        }
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-            List<TaiLieu> temp = (List<TaiLieu>) ois.readObject();
-            danhSach = temp;
-            dirty = false;
-            System.out.println("✅ Đã tải " + danhSach.size() + " tài liệu từ file: " + FILE_DAT);
-        } catch (IOException | ClassNotFoundException e) {
-            System.out.println("⚠️  Không thể đọc file dữ liệu: " + e.getMessage());
-            System.out.println("   Bắt đầu với danh sách trống.");
-        }
-    }
-
-    /** Tìm tài liệu theo mã, trả về Optional (không phân biệt hoa/thường). */
-    private Optional<TaiLieu> timTheoMa(String ma) {
-        return danhSach.stream()
-                       .filter(tl -> tl.getMaTaiLieu().equalsIgnoreCase(ma))
-                       .findFirst();
-    }
-
-    /** Ném MaTaiLieuTrungException nếu mã đã tồn tại. */
-    private void kiemTraMaTrung(String ma) {
-        if (timTheoMa(ma).isPresent()) {
-            throw new MaTaiLieuTrungException(ma);
-        }
-    }
 
     /** In danh sách kết quả tìm kiếm. */
     private void inKetQua(List<TaiLieu> ketQua) {
@@ -561,18 +475,24 @@ public class QuanLyThuVien {
         Set<String> no  = Set.of("n", "no",  "khong", "không");
         while (true) {
             System.out.print(prompt + " (y/n): ");
-            String val = scanner.nextLine().trim().toLowerCase();
+            String val = scanner.nextLine().trim().toLowerCase(Locale.ROOT);
             if (yes.contains(val)) return true;
             if (no.contains(val))  return false;
             System.out.println("  ⚠️  Nhập 'y' (có) hoặc 'n' (không)!");
         }
     }
 
-    /** Trả về tên loại tài liệu hiển thị cho người dùng. */
-    private String tenLoai(TaiLieu tl) {
-        if (tl instanceof Sach)   return "Sách";
-        if (tl instanceof TapChi) return "Tạp chí";
-        if (tl instanceof Bao)    return "Báo";
-        return "Khác";
+    /** Parse số nguyên, trả về null nếu chuỗi rỗng hoặc không hợp lệ. */
+    private Integer parseIntOrNull(String s) {
+        if (s.isEmpty()) return null;
+        try { return Integer.parseInt(s); }
+        catch (NumberFormatException e) { return null; }
+    }
+
+    /** Parse ngày, trả về null nếu chuỗi rỗng hoặc không hợp lệ. */
+    private LocalDate parseDateOrNull(String s) {
+        if (s.isEmpty()) return null;
+        try { return LocalDate.parse(s); }
+        catch (DateTimeParseException e) { return null; }
     }
 }
