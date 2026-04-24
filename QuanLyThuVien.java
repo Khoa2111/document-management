@@ -16,6 +16,7 @@ public class QuanLyThuVien {
 
     private List<TaiLieu> danhSach;
     private final Scanner scanner;
+    private boolean dirty = false;
 
     public QuanLyThuVien() {
         danhSach = new ArrayList<>();
@@ -29,6 +30,8 @@ public class QuanLyThuVien {
         System.out.println("\n╔═══════════════════════════════════════════════════════════════╗");
         System.out.println("║       🎉 CHÀO MỪNG ĐẾN PHẦN MỀM QUẢN LÝ THƯ VIỆN 🎉         ║");
         System.out.println("╚═══════════════════════════════════════════════════════════════╝");
+
+        autoLoadFile();
 
         int luaChon;
         do {
@@ -59,6 +62,10 @@ public class QuanLyThuVien {
         System.out.println("\n╔══════════════════════════════════════════════════════════════╗");
         System.out.println("║                    📚 MENU CHÍNH 📚                          ║");
         System.out.println("╠══════════════════════════════════════════════════════════════╣");
+        if (dirty) {
+            System.out.println("║  ⚠️  [CHƯA LƯU] Có thay đổi chưa được lưu vào file!        ║");
+            System.out.println("╠══════════════════════════════════════════════════════════════╣");
+        }
         System.out.println("║  1. ➕  Thêm tài liệu                                        ║");
         System.out.println("║  2. 📖  Hiển thị danh sách                                   ║");
         System.out.println("║  3. ❌  Xóa tài liệu                                         ║");
@@ -125,6 +132,7 @@ public class QuanLyThuVien {
                 }
             }
             System.out.println("✅ Thêm tài liệu thành công!");
+            dirty = true;
         } catch (IllegalArgumentException e) {
             System.out.println("❌ Dữ liệu không hợp lệ: " + e.getMessage());
         }
@@ -165,6 +173,7 @@ public class QuanLyThuVien {
             tl -> {
                 danhSach.remove(tl);
                 System.out.println("✅ Đã xóa: " + tl.getTenTaiLieu());
+                dirty = true;
             },
             () -> System.out.println("❌ Không tìm thấy tài liệu có mã: " + ma)
         );
@@ -236,6 +245,7 @@ public class QuanLyThuVien {
         }
 
         System.out.println("✅ Đã cập nhật tài liệu thành công!");
+        dirty = true;
         tl.hienThiThongTin();
     }
 
@@ -354,6 +364,7 @@ public class QuanLyThuVien {
         try (ObjectOutputStream oos =
                 new ObjectOutputStream(new FileOutputStream(FILE_DAT))) {
             oos.writeObject(danhSach);
+            dirty = false;
             System.out.println("✅ Đã lưu " + danhSach.size() + " tài liệu vào: " + FILE_DAT);
         } catch (IOException e) {
             System.out.println("❌ Lỗi khi ghi file: " + e.getMessage());
@@ -363,15 +374,46 @@ public class QuanLyThuVien {
     // =====================================================================
     // CHỨC NĂNG 10 – ĐỌC FILE NHỊ PHÂN  (Serialization + try-with-resources)
     // =====================================================================
-    @SuppressWarnings("unchecked")
     public void docFile() {
+        if (!dirty) {
+            thucHienDocFile();
+            return;
+        }
+
+        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║  ⚠️  CÓ DỮ LIỆU CHƯA LƯU – CHỌN HÀNH ĐỘNG:              ║");
+        System.out.println("╠════════════════════════════════════════════════════════════╣");
+        System.out.println("║  1. 💾  Lưu rồi đọc lại  (Save then reload)               ║");
+        System.out.println("║  2. 🗑️   Bỏ thay đổi và đọc lại  (Discard and reload)      ║");
+        System.out.println("║  0. ↩️   Hủy  (Cancel)                                     ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝");
+        int chon = nhapSoNguyen("👉 Chọn (0-2): ", 0, 2);
+
+        switch (chon) {
+            case 1 -> {
+                ghiFile();
+                if (!dirty) {   // chỉ tải lại nếu ghi thành công
+                    thucHienDocFile();
+                } else {
+                    System.out.println("⚠️  Lưu thất bại, không tải lại file.");
+                }
+            }
+            case 2 -> thucHienDocFile();
+            case 0 -> System.out.println("↩️  Đã hủy.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void thucHienDocFile() {
         System.out.println("\n╔════════════════════════════════════════╗");
         System.out.println("║       ĐỌC DỮ LIỆU TỪ FILE (.dat)      ║");
         System.out.println("╚════════════════════════════════════════╝");
 
         try (ObjectInputStream ois =
                 new ObjectInputStream(new FileInputStream(FILE_DAT))) {
-            danhSach = (List<TaiLieu>) ois.readObject();
+            List<TaiLieu> temp = (List<TaiLieu>) ois.readObject();
+            danhSach = temp;
+            dirty = false;
             System.out.println("✅ Đã nạp " + danhSach.size() + " tài liệu từ: " + FILE_DAT);
             hienThiDanhSach();
         } catch (FileNotFoundException e) {
@@ -422,6 +464,25 @@ public class QuanLyThuVien {
     // =====================================================================
     // PRIVATE HELPERS
     // =====================================================================
+
+    /** Tự động nạp dữ liệu từ file khi khởi động (nếu file tồn tại). */
+    @SuppressWarnings("unchecked")
+    private void autoLoadFile() {
+        File file = new File(FILE_DAT);
+        if (!file.exists()) {
+            System.out.println("ℹ️  Chưa có file dữ liệu. Bắt đầu với danh sách trống.");
+            return;
+        }
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+            List<TaiLieu> temp = (List<TaiLieu>) ois.readObject();
+            danhSach = temp;
+            dirty = false;
+            System.out.println("✅ Đã tải " + danhSach.size() + " tài liệu từ file: " + FILE_DAT);
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("⚠️  Không thể đọc file dữ liệu: " + e.getMessage());
+            System.out.println("   Bắt đầu với danh sách trống.");
+        }
+    }
 
     /** Tìm tài liệu theo mã, trả về Optional (không phân biệt hoa/thường). */
     private Optional<TaiLieu> timTheoMa(String ma) {
