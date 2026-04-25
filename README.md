@@ -48,26 +48,31 @@ ThuvienApp (entry point)
 ## Chạy chương trình
 
 ```bash
-javac -encoding UTF-8 *.java
-java buoi6.ThuvienApp
+javac -encoding UTF-8 src/model/*.java src/exception/*.java src/repository/*.java src/service/*.java src/app/*.java
+java ThuvienApp
 ```
 
 ## Cấu trúc file
 
 ```
-├── buoi6/
-│   ├── ThuvienApp.java              # Entry point
-│   ├── QuanLyThuVien.java           # UI layer
-│   ├── ThuVienService.java          # Service layer
-│   ├── TaiLieuRepository.java       # Repository interface
-│   ├── BinaryTaiLieuRepository.java # Repository implementation
-│   ├── TaiLieu.java                 # Abstract domain model
-│   ├── Sach.java                    # Concrete: Sách
-│   ├── TapChi.java                  # Concrete: Tạp chí
-│   ├── Bao.java                     # Concrete: Báo
-│   ├── MaTaiLieuTrungException.java # Domain exception
-│   └── TaiLieuNotFoundException.java# Domain exception
-└── data/                            # Runtime data directory (auto-created)
-    ├── thuvien.dat                  # Binary data file
-    └── thuvien.txt                  # Exported text file
+├── src/
+│   ├── app/
+│   │   ├── ThuvienApp.java              # Entry point
+│   │   └── QuanLyThuVien.java           # UI layer
+│   ├── service/
+│   │   └── ThuVienService.java          # Service layer
+│   ├── repository/
+│   │   ├── TaiLieuRepository.java       # Repository interface
+│   │   └── BinaryTaiLieuRepository.java # Repository implementation
+│   ├── model/
+│   │   ├── TaiLieu.java                 # Abstract domain model
+│   │   ├── Sach.java                    # Concrete: Sách
+│   │   ├── TapChi.java                  # Concrete: Tạp chí
+│   │   └── Bao.java                     # Concrete: Báo
+│   └── exception/
+│       ├── MaTaiLieuTrungException.java # Domain exception
+│       └── TaiLieuNotFoundException.java# Domain exception
+└── data/                                # Runtime data directory (auto-created)
+    ├── thuvien.dat                      # Binary data file
+    └── thuvien.txt                      # Exported text file
 ```
